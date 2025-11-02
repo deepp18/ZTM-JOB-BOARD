@@ -1,0 +1,15 @@
+.border-box {
+    box-sizing: border-box;
+}
+
+.ba {
+    border-style: solid;
+    border-width: 1px;
+}
+
+.custom--basic-button button {
+    background: transparent;
+    &:hover {
+        cursor: pointer;
+    }
+}
