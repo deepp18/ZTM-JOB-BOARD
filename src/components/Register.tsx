@@ -1,14 +1,17 @@
-// src/components/Register.tsx
 import React, { useState, useMemo } from 'react';
+
 
 type RegisterProps = {
   onRegister: (role: 'student' | 'recruiter' | 'admin', profileCompleted?: boolean) => void;
   onToggleLogin: () => void;
 };
 
+
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
+
 type Role = 'student' | 'recruiter';
+
 
 const Register: React.FC<RegisterProps> = ({ onRegister, onToggleLogin }) => {
   const [fullName, setFullName] = useState('');
@@ -21,20 +24,24 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onToggleLogin }) => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+
   const emailValid = useMemo(() => /\S+@\S+\.\S+/.test(email), [email]);
   const passwordValid = useMemo(() => password.length >= 8, [password]);
   const passwordsMatch = useMemo(() => password === confirm, [password, confirm]);
   const formValid = Boolean(fullName.trim()) && emailValid && passwordValid && passwordsMatch && !!role;
+
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErrorMsg(null);
     setSuccessMsg(null);
 
+
     if (!formValid) {
       setTouched({ fullName: true, email: true, password: true, confirm: true, role: true });
       return;
     }
+
 
     setLoading(true);
     try {
@@ -44,8 +51,10 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onToggleLogin }) => {
         body: JSON.stringify({ fullName, email, password, role }),
       });
 
+
       let data: any = null;
       try { data = await resp.json(); } catch { data = null; }
+
 
       if (!resp.ok) {
         const msg = data?.message || `Registration failed (${resp.status})`;
@@ -56,8 +65,10 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onToggleLogin }) => {
         if (data?.token) { try { localStorage.setItem('token', data.token); } catch {} }
         if (data?.user)  { try { localStorage.setItem('user', JSON.stringify(data.user)); } catch {} }
 
+
         // Clear fields
         setFullName(''); setEmail(''); setPassword(''); setConfirm(''); setRole(''); setTouched({});
+
 
         const r = (data?.user?.role || role) as 'student' | 'recruiter' | 'admin';
         const profileCompleted = !!data?.user?.profileCompleted;
@@ -69,6 +80,7 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onToggleLogin }) => {
       setLoading(false);
     }
   }
+
 
   return (
     <>
@@ -115,9 +127,11 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onToggleLogin }) => {
         @media (max-width:480px){ .auth-form{ padding:1.5rem 1.8rem;} .auth-form h2{ font-size:1.6rem;} .auth-form button{ font-size:1rem; } }
       `}</style>
 
+
       <div className="auth-container" role="main" aria-label="Register page">
         <form className="auth-form" onSubmit={handleSubmit} noValidate>
           <h2>Create Account</h2>
+
 
           <label htmlFor="fullName">Full Name</label>
           <input id="fullName" name="fullName" type="text" placeholder="John Doe" required
@@ -125,11 +139,13 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onToggleLogin }) => {
             onBlur={() => setTouched(t => ({ ...t, fullName: true }))} aria-invalid={touched.fullName && !fullName.trim()} aria-describedby="fullNameError" />
           {touched.fullName && !fullName.trim() && (<div id="fullNameError" className="error">Full Name is required.</div>)}
 
+
           <label htmlFor="email">Email</label>
           <input id="email" name="email" type="email" placeholder="you@example.com" required
             value={email} onChange={e => setEmail(e.target.value)}
             onBlur={() => setTouched(t => ({ ...t, email: true }))} aria-invalid={touched.email && !emailValid} aria-describedby="emailError" />
           {touched.email && !emailValid && (<div id="emailError" className="error">Please enter a valid email.</div>)}
+
 
           <label htmlFor="role">Account Type</label>
           <select id="role" name="role" value={role} onChange={(e) => setRole(e.target.value as Role | '')}
@@ -140,11 +156,13 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onToggleLogin }) => {
           </select>
           {touched.role && !role && (<div id="roleError" className="error">Please choose Student or Recruiter.</div>)}
 
+
           <label htmlFor="password">Password</label>
           <input id="password" name="password" type="password" placeholder="At least 8 characters" required
             value={password} onChange={e => setPassword(e.target.value)}
             onBlur={() => setTouched(t => ({ ...t, password: true }))} aria-invalid={touched.password && !passwordValid} aria-describedby="passwordError" />
           {touched.password && !passwordValid && (<div id="passwordError" className="error">Password must be at least 8 characters.</div>)}
+
 
           <label htmlFor="confirm">Confirm Password</label>
           <input id="confirm" name="confirm" type="password" placeholder="Re-enter your password" required
@@ -152,14 +170,17 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onToggleLogin }) => {
             onBlur={() => setTouched(t => ({ ...t, confirm: true }))} aria-invalid={touched.confirm && !passwordsMatch} aria-describedby="confirmError" />
           {touched.confirm && !passwordsMatch && (<div id="confirmError" className="error">Passwords do not match.</div>)}
 
+
           <button type="submit" aria-label="Register button" disabled={!formValid || loading} aria-busy={loading}>
             {loading ? 'Creating account...' : 'Register'}
           </button>
+
 
           <div role="status" aria-live="polite" style={{ minHeight: '1.1rem' }}>
             {errorMsg && <div className="error" style={{ marginTop: '.8rem' }}>{errorMsg}</div>}
             {successMsg && <div className="success" style={{ marginTop: '.8rem' }}>{successMsg}</div>}
           </div>
+
 
           {/* Keep the toggle under the card */}
           <button
@@ -168,7 +189,15 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onToggleLogin }) => {
             onClick={onToggleLogin}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleLogin(); } }}
             aria-label="Already have an account? Login here."
-            style={{ background: 'transparent', border: 'none' }}
+            style={{
+  background: 'transparent',
+  border: 'none',
+  color: '#2296f3',        // 👈 bright blue text
+  fontWeight: 700,
+  marginTop: '0.75rem',
+  cursor: 'pointer',
+  textAlign: 'center',
+}}
           >
             Already have an account? Login here.
           </button>
@@ -177,5 +206,6 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onToggleLogin }) => {
     </>
   );
 };
+
 
 export default Register;

@@ -1,169 +1,307 @@
-// src/components/FilterDropdown.tsx
 import React, { useEffect, useRef, useState } from "react";
 
-interface FilterPayload {
-  cities: string[];
-  jobs: string[];
+
+type FiltersShape = { [category: string]: string[] };
+
+
+interface Props {
+  filters: FiltersShape; // expects Country, State, City, Role, Industry (some can be empty)
+  selected: FiltersShape;
+  toggleFilter: (category: string, value: string) => void;
+  clearFilter: (category?: string) => void;
+  sortBy: string;
+  setSortBy: (s: string) => void;
+  nameQuery: string;
+  setNameQuery: (v: string) => void;
 }
 
-interface FilterDropdownProps {
-  cities: string[]; // options
-  jobs: string[]; // options
-  onFilterChange: (filters: FilterPayload) => void; // receives arrays
-}
 
-const FilterDropdown: React.FC<FilterDropdownProps> = ({ cities, jobs, onFilterChange }) => {
-  const [open, setOpen] = useState(false);
-  const [selectedCities, setSelectedCities] = useState<string[]>([]);
-  const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
+const FilterDropdown: React.FC<Props> = ({
+  filters,
+  selected,
+  toggleFilter,
+  clearFilter,
+  sortBy,
+  setSortBy,
+  nameQuery,
+  setNameQuery,
+}) => {
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const [searchInside, setSearchInside] = useState<{ [k: string]: string }>({});
 
-  // close on outside click
+
   useEffect(() => {
     function onDoc(e: MouseEvent) {
       if (!rootRef.current) return;
-      if (!rootRef.current.contains(e.target as Node)) setOpen(false);
+      if (!rootRef.current.contains(e.target as Node)) {
+        // keep open; no-op
+      }
     }
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  // report changes upstream
-  useEffect(() => {
-    onFilterChange({ cities: selectedCities, jobs: selectedJobs });
-  }, [selectedCities, selectedJobs, onFilterChange]);
 
-  function toggleCity(city: string) {
-    setSelectedCities((prev) => (prev.includes(city) ? prev.filter((c) => c !== city) : [...prev, city]));
-  }
+  const activeCount = Object.values(selected || {}).reduce(
+    (s, arr) => s + (arr ? arr.length : 0),
+    0
+  );
 
-  function toggleJob(job: string) {
-    setSelectedJobs((prev) => (prev.includes(job) ? prev.filter((j) => j !== job) : [...prev, job]));
-  }
 
-  function clearAll() {
-    setSelectedCities([]);
-    setSelectedJobs([]);
-  }
+  const isChecked = (category: string, opt: string) => {
+    const arr = selected?.[category] || [];
+    return arr.includes(opt);
+  };
 
-  const activeCount = selectedCities.length + selectedJobs.length;
+
+  // prioritize location path
+  const ordered = (() => {
+    const prefer = ["Country", "State", "City", "Role", "Industry"];
+    const rest = Object.keys(filters || {}).filter((k) => !prefer.includes(k));
+    return [
+      ...prefer.filter((p) => filters && p in filters),
+      ...rest,
+    ];
+  })();
+
+
+  const onSearchInsideChange = (category: string, v: string) => {
+    setSearchInside((prev) => ({ ...prev, [category]: v }));
+  };
+
+
+  const hintFor = (category: string) => {
+    if (category === "State" && (!filters.Country || (selected.Country || []).length === 0))
+      return "Pick a Country to see States";
+    if (category === "City") {
+      if ((selected.State || []).length > 0) return "No cities under the selected State(s)";
+      if ((selected.Country || []).length === 0) return "Pick a Country to see Cities";
+      return "Pick a State to narrow Cities (optional)";
+    }
+    return "No results";
+  };
+
 
   return (
-    <div ref={rootRef} style={{ position: "relative", marginRight: "1rem", fontFamily: "inherit" }}>
-      <button
-        onClick={() => setOpen((s) => !s)}
-        aria-haspopup="true"
-        aria-expanded={open}
-        style={{
-          padding: "0.45rem 0.9rem",
-          border: "1px solid rgba(255,255,255,0.08)",
-          borderRadius: 8,
-          cursor: "pointer",
-          background: "#111",
-          color: "#fff",
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 8,
-          fontWeight: 600,
-        }}
-      >
-        Filters{activeCount ? ` · ${activeCount}` : ""} <span style={{ fontSize: 11 }}>{open ? "▲" : "▼"}</span>
-      </button>
-
-      {open && (
-        <div
-          role="dialog"
-          aria-label="Filters"
+    <div
+      ref={rootRef}
+      style={{
+        width: 300,
+        minWidth: 260,
+        background: "#0b0b0b",
+        color: "#fff",
+        borderRadius: 8,
+        padding: 14,
+        boxShadow: "0 18px 48px rgba(2,6,23,0.45)",
+        zIndex: 1200,
+        fontFamily: "inherit",
+      }}
+      aria-label="Filter sidebar"
+    >
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <div style={{ fontWeight: 900, fontSize: 18 }}>Filters {activeCount ? `· ${activeCount}` : ""}</div>
+        <button
+          onClick={() => clearFilter()}
           style={{
-            position: "absolute",
-            top: "110%",
-            right: 0,
-            background: "#111",
+            background: "transparent",
             border: "1px solid rgba(255,255,255,0.06)",
-            borderRadius: 8,
-            padding: 12,
-            zIndex: 1200,
-            width: 260,
-            color: "#fff",
-            boxShadow: "0 12px 36px rgba(0,0,0,0.5)",
+            color: "#ddd",
+            padding: "6px 8px",
+            borderRadius: 6,
+            cursor: "pointer",
+            fontWeight: 700,
+            fontSize: 12,
           }}
+          aria-label="Clear all filters"
         >
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ fontWeight: 700, marginBottom: 8 }}>Cities</div>
-            <div style={{ maxHeight: 120, overflow: "auto", paddingRight: 6 }}>
-              {cities.map((c) => (
-                <label key={c} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedCities.includes(c)}
-                    onChange={() => toggleCity(c)}
-                    style={{ width: 16, height: 16 }}
-                    aria-checked={selectedCities.includes(c)}
-                  />
-                  <span style={{ fontSize: 14 }}>{c}</span>
-                </label>
-              ))}
-            </div>
-          </div>
+          Clear All
+        </button>
+      </div>
 
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ fontWeight: 700, marginBottom: 8 }}>Job Roles</div>
-            <div style={{ maxHeight: 120, overflow: "auto", paddingRight: 6 }}>
-              {jobs.map((j) => (
-                <label key={j} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedJobs.includes(j)}
-                    onChange={() => toggleJob(j)}
-                    style={{ width: 16, height: 16 }}
-                    aria-checked={selectedJobs.includes(j)}
-                  />
-                  <span style={{ fontSize: 14 }}>{j}</span>
-                </label>
-              ))}
-            </div>
-          </div>
 
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+      {/* Name search */}
+      <div style={{ marginBottom: 10 }}>
+        <label style={{ display: "block", color: "#cfcfcf", fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
+          Search by name
+        </label>
+        <div style={{ display: "flex", gap: 6 }}>
+          <input
+            value={nameQuery}
+            onChange={(e) => setNameQuery(e.target.value)}
+            placeholder="Type a name…"
+            aria-label="Search by name"
+            style={{
+              flex: 1,
+              padding: "8px 10px",
+              borderRadius: 6,
+              border: "1px solid rgba(255,255,255,0.06)",
+              background: "rgba(255,255,255,0.02)",
+              color: "#fff",
+              outline: "none",
+              fontSize: 13,
+            }}
+          />
+          {nameQuery ? (
             <button
-              type="button"
-              onClick={clearAll}
+              onClick={() => setNameQuery("")}
+              aria-label="Clear name search"
+              title="Clear"
               style={{
-                padding: "8px 10px",
-                borderRadius: 8,
                 background: "transparent",
-                border: "1px solid rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.12)",
                 color: "#ddd",
+                padding: "6px 10px",
+                borderRadius: 6,
                 cursor: "pointer",
-                fontWeight: 600,
+                fontWeight: 700,
+                fontSize: 12,
               }}
             >
-              Clear
+              ✕
             </button>
-
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: 8,
-                  background: "#4aa3f0",
-                  border: "none",
-                  color: "#071226",
-                  cursor: "pointer",
-                  fontWeight: 700,
-                }}
-              >
-                Done
-              </button>
-            </div>
-          </div>
+          ) : null}
         </div>
-      )}
+      </div>
+
+
+      {/* Sort */}
+      <div style={{ marginBottom: 12, display: "flex", gap: 8, alignItems: "center" }}>
+        <label style={{ color: "#cfcfcf", fontSize: 13, fontWeight: 700 }}>Sort</label>
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          style={{
+            marginLeft: 6,
+            padding: "6px 8px",
+            borderRadius: 6,
+            background: "rgba(255,255,255,0.03)",
+            color: "#fff",
+            border: "1px solid rgba(255,255,255,0.06)",
+            fontSize: 13,
+          }}
+          aria-label="Sort profiles"
+        >
+          <option value="relevance">Relevance</option>
+          <option value="az">A–Z</option>
+          <option value="za">Z–A</option>
+          <option value="newest">Newest</option>
+          <option value="oldest">Oldest</option>
+        </select>
+      </div>
+
+
+      {/* Divider */}
+      <div style={{ height: 1, background: "rgba(255,255,255,0.04)", margin: "8px 0 12px" }} />
+
+
+      {/* Categories */}
+      <div style={{ maxHeight: "60vh", overflow: "auto", paddingRight: 6 }}>
+        {ordered.map((category) => {
+          const opts = filters[category] || [];
+          const searchVal = (searchInside[category] || "").toLowerCase();
+          const visible = searchVal ? opts.filter((o) => String(o).toLowerCase().includes(searchVal)) : opts;
+
+
+          return (
+            <div key={category} style={{ marginBottom: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <div style={{ fontWeight: 800, fontSize: 13 }}>{category}</div>
+                <button
+                  onClick={() => clearFilter(category)}
+                  style={{ background: "transparent", border: "none", color: "#bdbdbd", fontSize: 12, cursor: "pointer" }}
+                >
+                  Clear
+                </button>
+              </div>
+
+
+              {/* small search inside category */}
+              <div style={{ marginBottom: 8 }}>
+                <input
+                  value={searchInside[category] || ""}
+                  onChange={(e) => onSearchInsideChange(category, e.target.value)}
+                  placeholder={`Search ${category}`}
+                  style={{
+                    width: "100%",
+                    padding: "6px 8px",
+                    borderRadius: 6,
+                    border: "1px solid rgba(255,255,255,0.06)",
+                    background: "rgba(255,255,255,0.02)",
+                    color: "#fff",
+                    outline: "none",
+                    fontSize: 13,
+                  }}
+                />
+              </div>
+
+
+              <div style={{ maxHeight: 140, overflow: "auto", paddingRight: 6 }}>
+                {visible.map((opt) => (
+                  <label key={opt} style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={isChecked(category, opt)}
+                      onChange={() => toggleFilter(category, opt)}
+                      aria-checked={isChecked(category, opt)}
+                      style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#4aa3f0" }}
+                    />
+                    <span style={{ fontSize: 14, color: "#eaeaea" }}>{opt}</span>
+                  </label>
+                ))}
+
+
+                {visible.length === 0 && (
+                  <div style={{ color: "#8d8d8d", fontSize: 13 }}>
+                    {hintFor(category)}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+
+      {/* Footer actions */}
+      <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+        <button
+          onClick={() => clearFilter()}
+          style={{
+            flex: 1,
+            background: "transparent",
+            border: "1px solid rgba(255,255,255,0.06)",
+            color: "#fff",
+            padding: "10px 12px",
+            borderRadius: 8,
+            fontWeight: 600,
+            cursor: "pointer",
+            fontSize: 14,
+          }}
+        >
+          Clear All
+        </button>
+        <button
+          onClick={() => {}}
+          style={{
+            background: "#4aa3f0",
+            border: "none",
+            color: "#071226",
+            padding: "10px 14px",
+            borderRadius: 8,
+            fontWeight: 900,
+            cursor: "pointer",
+            fontSize: 14,
+          }}
+        >
+          Done
+        </button>
+      </div>
     </div>
   );
 };
 
+
 export default FilterDropdown;
-  
+
+

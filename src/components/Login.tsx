@@ -1,20 +1,26 @@
 // src/components/Login.tsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
+
 type LoginProps = {
   onLogin: (isAdmin?: boolean) => void;
   onToggleRegister: () => void;
+  onBack?: () => void; // NEW: go back to landing
 };
+
 
 declare global {
   interface Window { google?: any; }
 }
 
+
 const GOOGLE_CLIENT_ID = '287351753657-jcrib040ool4hs0bbi05s3ui41j123tv.apps.googleusercontent.com';
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
+
 type Role = 'student' | 'recruiter' | 'admin';
 type ApiUser = { _id: string; email: string; fullName?: string; role: Role; profileCompleted?: boolean };
+
 
 function parseJwt<T = any>(token: string): T | null {
   try {
@@ -29,7 +35,8 @@ function parseJwt<T = any>(token: string): T | null {
   }
 }
 
-const Login: React.FC<LoginProps> = ({ onLogin, onToggleRegister }) => {
+
+const Login: React.FC<LoginProps> = ({ onLogin, onToggleRegister, onBack }) => {
   const [emailOrUser, setEmailOrUser] = useState('');
   const [password, setPassword] = useState('');
   const [asAdmin, setAsAdmin] = useState(false); // visual only
@@ -38,12 +45,15 @@ const Login: React.FC<LoginProps> = ({ onLogin, onToggleRegister }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+
   const looksLikeEmail = useMemo(() => emailOrUser.includes('@'), [emailOrUser]);
   const emailValid = useMemo(() => (looksLikeEmail ? emailOrUser.trim().includes('@') : true), [emailOrUser, looksLikeEmail]);
   const passwordValid = useMemo(() => password.length >= 8, [password]);
   const formValid = (looksLikeEmail ? emailValid : true) && passwordValid;
 
+
   const googleBtnRef = useRef<HTMLDivElement | null>(null);
+
 
   useEffect(() => {
     const existing = document.querySelector<HTMLScriptElement>('script[src="https://accounts.google.com/gsi/client"]');
@@ -57,6 +67,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onToggleRegister }) => {
     s.defer = true;
     s.onload = initGoogle;
     document.head.appendChild(s);
+
 
     function initGoogle() {
       if (!window.google || !googleBtnRef.current) return;
@@ -83,6 +94,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onToggleRegister }) => {
           },
         });
 
+
         window.google.accounts.id.renderButton(googleBtnRef.current, {
           theme: 'outline',
           size: 'large',
@@ -95,12 +107,15 @@ const Login: React.FC<LoginProps> = ({ onLogin, onToggleRegister }) => {
     }
   }, [onLogin, desiredRole]);
 
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setTouched({ email: true, password: true });
     setError(null);
 
+
     if (!formValid) return;
+
 
     setLoading(true);
     try {
@@ -110,7 +125,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, onToggleRegister }) => {
         body: JSON.stringify({ email: emailOrUser, password, desiredRole }),
       });
 
+
       const data: { token?: string; user?: ApiUser; message?: string } | null = await resp.json().catch(() => null);
+
 
       if (!resp.ok) {
         setError(data?.message || `Login failed (${resp.status})`);
@@ -119,12 +136,24 @@ const Login: React.FC<LoginProps> = ({ onLogin, onToggleRegister }) => {
         if (data?.user)  { try { localStorage.setItem('user', JSON.stringify(data.user)); } catch {} }
         onLogin(data?.user?.role === 'admin');
       }
-    } catch (err) {
+    } catch {
       setError('Network error. Try again.');
     } finally {
       setLoading(false);
     }
   }
+
+
+  function goBack() {
+    if (onBack) {
+      onBack();
+    } else {
+      // Fallback if parent didn't pass onBack
+      if (window.history.length > 1) window.history.back();
+      else window.location.assign('/'); // adjust if your landing route differs
+    }
+  }
+
 
   return (
     <>
@@ -166,14 +195,42 @@ const Login: React.FC<LoginProps> = ({ onLogin, onToggleRegister }) => {
         }
         .submit:hover { transform: translateY(-1px); background: #1764c0; box-shadow: 0 16px 32px rgba(23,100,192,.45); }
         .submit:disabled { opacity: .6; cursor: not-allowed; transform: none; box-shadow: none; }
-        .toggle-register { margin-top: 1rem; font-size: 0.95rem; color: #eef6ff; cursor: pointer; text-align: center; user-select: none; }
+        .toggle-register { margin-top: 1rem; font-size: 0.95rem; color: #1676e3ff; cursor: pointer; text-align: center; user-select: none; }
         .toggle-register:hover { text-decoration: underline; }
         .google-wrap { display: grid; place-items: center; margin-top: .25rem; margin-bottom: .75rem; }
+
+
+        /* NEW: back button */
+        .back-btn {
+          position: absolute; top: 10px; left: 10px;
+          display: inline-flex; align-items: center; gap: 8px;
+          background: transparent; border: 1px solid rgba(34,150,243,0.35);
+          color: #1764c0; padding: 6px 10px; border-radius: 10px;
+          font-weight: 800; cursor: pointer;
+          transition: transform .15s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
+        }
+        .back-btn:hover { transform: translateY(-1px); background: #eef6ff; border-color: #1764c0; }
+        .back-btn:focus-visible { outline: 3px solid rgba(34,150,243,.4); outline-offset: 2px; }
+        .back-btn__icon { font-size: 14px; line-height: 1; }
       `}</style>
+
 
       <div className="auth-container" role="main" aria-label="Login page">
         <form className="auth-form" onSubmit={handleSubmit} noValidate>
+          {/* NEW: Back to landing */}
+          <button
+            type="button"
+            className="back-btn"
+            onClick={goBack}
+            aria-label="Back to landing page"
+          >
+            <span className="back-btn__icon" aria-hidden>←</span>
+            Back
+          </button>
+
+
           <h2>Login</h2>
+
 
           <div className="field">
             <label className="label" htmlFor="emailOrUser">Email (or username)</label>
@@ -187,6 +244,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onToggleRegister }) => {
             )}
           </div>
 
+
           <div className="field">
             <label className="label" htmlFor="password">Password</label>
             <input id="password" className="input" type="password" placeholder="Minimum 8 characters" required
@@ -199,6 +257,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onToggleRegister }) => {
             )}
           </div>
 
+
           <div className="field">
             <label className="label" htmlFor="portal">Portal (optional)</label>
             <select id="portal" className="input" value={desiredRole}
@@ -210,6 +269,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onToggleRegister }) => {
             <div className="hint">We’ll use your saved account role from the server.</div>
           </div>
 
+
           <label className="admin-row" htmlFor="asAdmin">
             <span className="checkbox-wrapper">
               <input id="asAdmin" type="checkbox" className="checkbox" checked={asAdmin} onChange={(e) => setAsAdmin(e.target.checked)} />
@@ -217,17 +277,22 @@ const Login: React.FC<LoginProps> = ({ onLogin, onToggleRegister }) => {
             <span className="checkbox-label">ADMIN</span>
           </label>
 
+
           {error && <div style={{ color: '#b3002d', marginBottom: 10 }}>{error}</div>}
+
 
           <button type="submit" className="submit" disabled={!formValid || loading} aria-label="Login button">
             {loading ? 'Signing in...' : 'Login'}
           </button>
 
+
           <div className="or" aria-hidden>or</div>
+
 
           <div className="google-wrap">
             <div ref={googleBtnRef} aria-label="Google Sign-In Button" />
           </div>
+
 
           <button
             type="button"
@@ -244,5 +309,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, onToggleRegister }) => {
     </>
   );
 };
+
 
 export default Login;
